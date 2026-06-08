@@ -1,0 +1,57 @@
+# REASONS Canvas for Kinematic Movement Model
+# Версия: 2.0 (финальная)
+# Дата: 08.06.2026
+
+## Requirements (Требования)
+- Реализовать кинематическое движение для RollerAgent (наследник Agent).
+- Параметры (настраиваемые в инспекторе):
+  - maxSpeed = 10 (максимальная скорость, м/с)
+  - accelerationRate = 20 (коэффициент ускорения, Н·с/м / массу)
+  - drag = 5 (коэффициент трения, 1/с)
+- Действия: два непрерывных значения (actionX, actionZ) в диапазоне [-1, 1].
+- Алгоритм в OnActionReceived:
+  1. Прочитать actionX, actionZ.
+  2. Создать вектор (actionX, 0, actionZ).
+  3. Если длина вектора > 0.01f, нормализовать, иначе оставить нулевым.
+  4. Желаемая скорость = нормализованный вектор * maxSpeed.
+  5. Сила = (желаемая скорость - текущая скорость) * accelerationRate * rb.mass.
+  6. rb.AddForce(force, ForceMode.Force).
+  7. rb.velocity *= (1 - drag * Time.fixedDeltaTime).
+  8. rb.velocity = Vector3.ClampMagnitude(rb.velocity, maxSpeed).
+- В OnEpisodeBegin: сбросить скорость и позицию в startPosition.
+- В Heuristic: привязать Horizontal и Vertical оси.
+
+## Entities
+- RollerAgent : Agent
+- Rigidbody rb
+- ActionBuffers
+
+## Approach
+Косвенное управление через силу (не прямое присвоение скорости) для корректной работы физики (коллизии, триггеры). Используется П-регулятор скорости для плавного выхода на целевой режим. Трение применяется после силы, ограничение – последним.
+
+## Structure
+[Header("Kinematic Movement")]
+[SerializeField] private float maxSpeed;
+[SerializeField] private float accelerationRate;
+[SerializeField] private float drag;
+[SerializeField] private Vector3 startPosition;
+
+private Rigidbody rb;
+private const float ACTION_EPSILON = 0.01f;
+
+Методы: Initialize, OnEpisodeBegin, OnActionReceived, Heuristic.
+
+## Operations
+1. В Initialize: rb = GetComponent<Rigidbody>();
+2. OnEpisodeBegin: rb.velocity = Vector3.zero; transform.localPosition = startPosition;
+3. OnActionReceived – реализовать по алгоритму.
+4. Heuristic – заполнение actionsOut из Input.GetAxis.
+
+## Norms
+PascalCase для методов, camelCase для локальных переменных, комментарии на английском.
+
+## Safeguards
+- Проверка action.magnitude > ACTION_EPSILON перед нормализацией.
+- Проверка rb != null в Initialize.
+- Защита от NaN в силе (если вдруг).
+- Clamp действий уже внутри действия.
